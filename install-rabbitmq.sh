@@ -11,9 +11,9 @@ slave2="$2"
 
 host() {
 cat <<EOF | sudo tee -a /etc/hosts
-$masterIP rabbitmq1
-$slave1 rabbitmq2
-$slave2 rabbitmq3
+$1 rabbitmq1
+$2 rabbitmq2
+$3 rabbitmq3
 EOF
 }
 
@@ -77,6 +77,7 @@ services:
       - ./storage/rabbitmq:/var/lib/rabbitmq
       - ./.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie
       - ./enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
     network_mode: "host"
 EOF
 
@@ -87,36 +88,37 @@ docker-compose up -d
 #Join cluster
 joincluster() {
 docker exec $1 rabbitmqctl stop_app
-sleep 20
+sleep 30
 docker exec $1 rabbitmqctl join_cluster rabbit@rabbitmq1
-sleep 20
+sleep 30
 docker exec $1 rabbitmqctl start_app
 }
 
 ##Master
 #Invoke funci
-host
+host $masterIP $slave1 $slave2
 erlang
 createconfig
 composemaster
 #Excute mode
-sleep 40
+sleep 60
 docker exec rabbitmq1 rabbitmqctl set_policy -p "/" --priority 1 --apply-to "all" ha ".*" '{ "ha-mode": "all", "ha-sync-mode": "automatic"}'
 
 ##Install rabbit on slave
 user=root
 host=($slave1 $slave2)
 #Slave1
-typeset -f host | ssh $user@${host[0]} "$(cat); host"
+typeset -f host | ssh $user@${host[0]} "$(cat); host $masterIP $slave1 $slave2"
 typeset -f erlang | ssh $user@${host[0]} "$(cat); erlang"
 typeset -f createconfig | ssh $user@${host[0]} "$(cat); createconfig"
 typeset -f composeslave | ssh $user@${host[0]} "$(cat); composeslave rabbitmq2"
-sleep 40
+sleep 60
 typeset -f joincluster | ssh $user@${host[0]} "$(cat); joincluster rabbitmq2"
 
 #Slave2
-typeset -f host | ssh $user@${host[1]} "$(cat); host"
+typeset -f host | ssh $user@${host[1]} "$(cat); host $masterIP $slave1 $slave2"
+typeset -f erlang | ssh $user@${host[1]} "$(cat); erlang"
 typeset -f createconfig | ssh $user@${host[1]} "$(cat); createconfig"
 typeset -f composeslave | ssh $user@${host[1]} "$(cat); composeslave rabbitmq3"
-sleep 40
+sleep 60
 typeset -f joincluster | ssh $user@${host[1]} "$(cat); joincluster rabbitmq3"
