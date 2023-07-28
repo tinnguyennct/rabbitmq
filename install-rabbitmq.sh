@@ -48,6 +48,7 @@ services:
     image: rabbitmq:3-management
     hostname: rabbitmq1
     container_name: rabbitmq1
+    restart: always
     environment:
       - RABBITMQ_DEFAULT_USER=admin
       - RABBITMQ_DEFAULT_PASS=ycJHyvKGBNrgn9qY
@@ -73,6 +74,7 @@ services:
     image: rabbitmq:3-management
     hostname: $1
     container_name: $1
+    restart: always
     volumes:
       - ./storage/rabbitmq:/var/lib/rabbitmq
       - ./.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie
